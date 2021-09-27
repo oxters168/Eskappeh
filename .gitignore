@@ -73,3 +73,6 @@ Assets/ModernFuniture2/*
 
 Assets/Plugins/RealtimeCSG/*
 !Assets/Plugins/RealtimeCSG/.gitkeep
+
+Assets/TextMesh Pro/*
+!Assets/TextMesh Pro/.gitkeep
