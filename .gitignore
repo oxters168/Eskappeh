@@ -68,8 +68,8 @@ Assets/AssetStoreOriginals/_SNAPS_PrototypingAssets/*
 Assets/Furniture Mega Pack/*
 !Assets/Furniture Mega Pack/.gitkeep
 
-Assets/ModernFurniture2/*
-!Assets/ModernFurniture2/.gitkeep
+Assets/ModernFuniture2/*
+!Assets/ModernFuniture2/.gitkeep
 
 Assets/Plugins/RealtimeCSG/*
 !Assets/Plugins/RealtimeCSG/.gitkeep
