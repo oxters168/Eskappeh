@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityHelpers;
 using UnityEngine.InputSystem;
+using Shapes;
 
 public class XRMovement : MonoBehaviour
 {
@@ -10,22 +11,53 @@ public class XRMovement : MonoBehaviour
     public float speed = 3;
     public float turnStep = 15;
     public float deadzone = 0.1f;
-    public float radius = 0.1f;
+    public float radius = 0.3f;
     public float maxHeight = 1.9f;
     public float minHeight = 0.1f;
+    public float rayAngle = 5;
 
     [Space(10)]
     public InputAction leftStickInput;
     public InputAction rightStickInput;
 
+    #region Values
     private Vector2 leftStick;
     private Vector2 prevLeftStick;
 
     private Vector2 rightStick;
     private Vector2 prevRightStick;
 
+    private bool lookRight;
+    private bool lookLeft;
+    private bool moveUp;
+    private bool moveDown;
+    private bool onLookRight;
+    private bool onLookLeft;
+    private bool onMoveUp;
+    private bool onMoveDown;
+
+    private bool moveRight;
+    private bool moveLeft;
+    private bool moveForward;
+    private bool moveBack;
+    private bool onMoveRight;
+    private bool onMoveLeft;
+    private bool onMoveForward;
+    private bool onMoveBack;
+    #endregion
+
     [Space(10)]
     public bool debugValues;
+    public Disc radiusDiscDebug;
+    public Line movementLineDebug;
+
+    private Vector3 forward;
+    private Vector3 right;
+    private float leftStickXValue;
+    private float leftStickYValue;
+
+    private float rightDist;
+    private float forwardDist;
 
     void OnEnable()
     {
@@ -41,55 +73,70 @@ public class XRMovement : MonoBehaviour
     void Update()
     {
         ReadInput();
-        
+        RefineInput();
+        ApplyInput();
+        BodyCollision();
+
         if (debugValues)
             DebugValues();
-
-        ApplyInput();
     }
+    
+    private void BodyCollision()
+    {
+        Vector3 shortestDir = Vector3.zero;
+        float shortestDistance = float.MaxValue;
+        bool wallHit = false;
 
+        //Find the shortest raycast
+        Vector3 startPoint = hmdTracker.position.Multiply(new Vector3(1, 0.5f, 1));
+        int rays = Mathf.RoundToInt(360 / rayAngle);
+        for (int i = 0; i < rays; i++)
+        {
+            Vector3 currentDir = Quaternion.Euler(0, rayAngle * i, 0) * Vector3.forward;
+            RaycastHit hitInfo;
+            bool rayHit = Physics.Raycast(startPoint, currentDir, out hitInfo, radius);
+            wallHit = wallHit || rayHit;
+            if (rayHit && hitInfo.distance < shortestDistance)
+            {
+                shortestDir = currentDir;
+                shortestDistance = hitInfo.distance;
+            }
+            if (debugValues)
+                Debug.DrawRay(startPoint, currentDir * radius, rayHit ? Color.green : Color.red);
+        }
+
+        //Move back based on shortest raycast output
+        if (wallHit)
+            transform.position -= shortestDir * (radius - shortestDistance);
+    }
     private void ApplyInput()
     {
-        bool lookRight = rightStick.x > deadzone;
-        bool lookLeft = rightStick.x < -deadzone;
-        bool moveUp = rightStick.y > deadzone;
-        bool moveDown = rightStick.y < -deadzone;
-        bool onLookRight = lookRight && prevRightStick.x < deadzone;
-        bool onLookLeft = lookLeft && prevRightStick.x > -deadzone;
-        bool onMoveUp = moveUp && prevRightStick.y < deadzone;
-        bool onMoveDown = moveDown && prevRightStick.y > -deadzone;
-
-        bool moveRight = leftStick.x > deadzone;
-        bool moveLeft = leftStick.x < -deadzone;
-        bool moveForward = leftStick.y > deadzone;
-        bool moveBack = leftStick.y < -deadzone;
-        bool onMoveRight = moveRight && prevLeftStick.x < deadzone;
-        bool onMoveLeft = moveLeft && prevLeftStick.x > -deadzone;
-        bool onMoveForward = moveForward && prevLeftStick.y < deadzone;
-        bool onMoveBack = moveBack && prevLeftStick.y > -deadzone;
-
         if (onLookRight)
             transform.eulerAngles += Vector3.up * turnStep;
         if (onLookLeft)
             transform.eulerAngles -= Vector3.up * turnStep;
 
-        if (moveLeft || moveRight || moveForward || moveBack)
-        {
-            Vector3 forward = hmdTracker.forward.Planar(Vector3.up);
-            Vector3 right = Quaternion.Euler(0, 90, 0) * forward; //Cheaper than cross
-            float xValue = Mathf.Sign(leftStick.x) * ((Mathf.Abs(leftStick.x) - deadzone) / (1 - deadzone));
-            float yValue = Mathf.Sign(leftStick.y) * ((Mathf.Abs(leftStick.y) - deadzone) / (1 - deadzone));
-
-            if (moveRight || moveLeft)
-                transform.position += right * speed * Time.deltaTime * xValue;
-            if (moveForward || moveBack)
-                transform.position += forward * speed * Time.deltaTime * yValue;
-        }
+        forward = hmdTracker.forward.Planar(Vector3.up);
+        right = Quaternion.Euler(0, 90, 0) * forward; //Cheaper than cross
+        if (moveLeft || moveRight)
+            leftStickXValue = Mathf.Sign(leftStick.x) * ((Mathf.Abs(leftStick.x) - deadzone) / (1 - deadzone));
+        else
+            leftStickXValue = 0;
+        if (moveForward || moveBack)
+            leftStickYValue = Mathf.Sign(leftStick.y) * ((Mathf.Abs(leftStick.y) - deadzone) / (1 - deadzone));
+        else
+            leftStickYValue = 0;
+        rightDist = speed * Time.deltaTime * leftStickXValue;
+        forwardDist = speed * Time.deltaTime * leftStickYValue;
+        if (moveRight || moveLeft)
+            transform.position += right * rightDist;
+        if (moveForward || moveBack)
+            transform.position += forward * forwardDist;
         
         if (moveUp || moveDown)
         {
-            float zValue = Mathf.Sign(rightStick.y) * ((Mathf.Abs(rightStick.y) - deadzone) / (1 - deadzone));
-            float upOffset = speed * Time.deltaTime * zValue;
+            float rightStickYValue = Mathf.Sign(rightStick.y) * ((Mathf.Abs(rightStick.y) - deadzone) / (1 - deadzone));
+            float upOffset = speed * Time.deltaTime * rightStickYValue;
             float maxOffset = maxHeight - hmdTracker.position.y;
             float minOffset = minHeight - hmdTracker.position.y;
             float correctedUpOffset = Mathf.Clamp(upOffset, minOffset, maxOffset);
@@ -106,10 +153,38 @@ public class XRMovement : MonoBehaviour
         leftStick = leftStickInput.ReadValue<Vector2>();
         rightStick = rightStickInput.ReadValue<Vector2>();
     }
+    private void RefineInput()
+    {
+        lookRight = rightStick.x > deadzone;
+        lookLeft = rightStick.x < -deadzone;
+        moveUp = rightStick.y > deadzone;
+        moveDown = rightStick.y < -deadzone;
+        onLookRight = lookRight && prevRightStick.x < deadzone;
+        onLookLeft = lookLeft && prevRightStick.x > -deadzone;
+        onMoveUp = moveUp && prevRightStick.y < deadzone;
+        onMoveDown = moveDown && prevRightStick.y > -deadzone;
+
+        moveRight = leftStick.x > deadzone;
+        moveLeft = leftStick.x < -deadzone;
+        moveForward = leftStick.y > deadzone;
+        moveBack = leftStick.y < -deadzone;
+        onMoveRight = moveRight && prevLeftStick.x < deadzone;
+        onMoveLeft = moveLeft && prevLeftStick.x > -deadzone;
+        onMoveForward = moveForward && prevLeftStick.y < deadzone;
+        onMoveBack = moveBack && prevLeftStick.y > -deadzone;
+    }
     private void DebugValues()
     {
-        DebugPanel.Log("RightStick", rightStick);
-        DebugPanel.Log("LeftStick", leftStick);
-        DebugPanel.Log("EyeHeight", hmdTracker.position.y);
+        DebugPanel.Log("RightStick", rightStick, 10);
+        DebugPanel.Log("LeftStick", leftStick, 10);
+        DebugPanel.Log("EyeHeight", hmdTracker.position.y, 10);
+
+        radiusDiscDebug.Radius = radius;
+        radiusDiscDebug.transform.position = hmdTracker.position.Multiply(new Vector3(1, 0.5f, 1));
+
+        Vector3 end = ((right * leftStickXValue) + (forward * leftStickYValue)).normalized * radius;
+        movementLineDebug.transform.forward = Vector3.forward;
+        movementLineDebug.End = end;
+        movementLineDebug.transform.position = hmdTracker.position.Multiply(new Vector3(1, 0.5f, 1));
     }
 }
