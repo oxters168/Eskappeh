@@ -4,12 +4,15 @@ using UnityEngine.InputSystem;
 
 public class XRMovement : MonoBehaviour
 {
-    public float speed = 2;
-    public float turnStep = 15;
-    public float deadzone = 0.1f;
+    public Transform hmdTracker;
 
     [Space(10)]
-    public Transform hmdTracker;
+    public float speed = 3;
+    public float turnStep = 15;
+    public float deadzone = 0.1f;
+    public float radius = 0.1f;
+    public float maxHeight = 1.9f;
+    public float minHeight = 0.1f;
 
     [Space(10)]
     public InputAction leftStickInput;
@@ -49,8 +52,12 @@ public class XRMovement : MonoBehaviour
     {
         bool lookRight = rightStick.x > deadzone;
         bool lookLeft = rightStick.x < -deadzone;
+        bool moveUp = rightStick.y > deadzone;
+        bool moveDown = rightStick.y < -deadzone;
         bool onLookRight = lookRight && prevRightStick.x < deadzone;
         bool onLookLeft = lookLeft && prevRightStick.x > -deadzone;
+        bool onMoveUp = moveUp && prevRightStick.y < deadzone;
+        bool onMoveDown = moveDown && prevRightStick.y > -deadzone;
 
         bool moveRight = leftStick.x > deadzone;
         bool moveLeft = leftStick.x < -deadzone;
@@ -70,13 +77,25 @@ public class XRMovement : MonoBehaviour
         {
             Vector3 forward = hmdTracker.forward.Planar(Vector3.up);
             Vector3 right = Quaternion.Euler(0, 90, 0) * forward; //Cheaper than cross
-            float xValue = ((leftStick.x - deadzone) / (1 - deadzone));
-            float yValue = ((leftStick.y - deadzone) / (1 - deadzone));
+            float xValue = Mathf.Sign(leftStick.x) * ((Mathf.Abs(leftStick.x) - deadzone) / (1 - deadzone));
+            float yValue = Mathf.Sign(leftStick.y) * ((Mathf.Abs(leftStick.y) - deadzone) / (1 - deadzone));
 
             if (moveRight || moveLeft)
                 transform.position += right * speed * Time.deltaTime * xValue;
             if (moveForward || moveBack)
                 transform.position += forward * speed * Time.deltaTime * yValue;
+        }
+        
+        if (moveUp || moveDown)
+        {
+            float zValue = Mathf.Sign(rightStick.y) * ((Mathf.Abs(rightStick.y) - deadzone) / (1 - deadzone));
+            float upOffset = speed * Time.deltaTime * zValue;
+            float maxOffset = maxHeight - hmdTracker.position.y;
+            float minOffset = minHeight - hmdTracker.position.y;
+            float correctedUpOffset = Mathf.Clamp(upOffset, minOffset, maxOffset);
+            if (Mathf.Sign(upOffset) != Mathf.Sign(correctedUpOffset))
+                correctedUpOffset = 0;
+            transform.position += Vector3.up * correctedUpOffset;
         }
     }
     private void ReadInput()
@@ -91,5 +110,6 @@ public class XRMovement : MonoBehaviour
     {
         DebugPanel.Log("RightStick", rightStick);
         DebugPanel.Log("LeftStick", leftStick);
+        DebugPanel.Log("EyeHeight", hmdTracker.position.y);
     }
 }

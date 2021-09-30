@@ -1049,10 +1049,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e44af1c8b82459d48bcd3e84aa96f8c6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  speed: 2
-  turnStep: 15
-  deadzone: 0.1
   hmdTracker: {fileID: 8766365634597536041}
+  speed: 3
+  turnStep: 15
+  deadzone: 0.3
+  maxHeight: 1.9
+  minHeight: 0.1
   leftStickInput:
     m_Name: Left Stick Input
     m_Type: 0
