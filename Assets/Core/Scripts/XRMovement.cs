@@ -5,16 +5,18 @@ using Shapes;
 
 public class XRMovement : MonoBehaviour
 {
+    public Transform movableRig;
     public Transform hmdTracker;
 
     [Space(10)]
     public float speed = 3;
     public float turnStep = 15;
     public float deadzone = 0.1f;
+    public LayerMask obstacleMask = ~0;
     public float radius = 0.3f;
+    public float rayAngle = 5;
     public float maxHeight = 1.9f;
     public float minHeight = 0.1f;
-    public float rayAngle = 5;
 
     [Space(10)]
     public InputAction leftStickInput;
@@ -46,7 +48,7 @@ public class XRMovement : MonoBehaviour
     private bool onMoveBack;
     #endregion
 
-    [Space(10)]
+    [Header("Debug")]
     public bool debugValues;
     public Disc radiusDiscDebug;
     public Line movementLineDebug;
@@ -94,7 +96,7 @@ public class XRMovement : MonoBehaviour
         {
             Vector3 currentDir = Quaternion.Euler(0, rayAngle * i, 0) * Vector3.forward;
             RaycastHit hitInfo;
-            bool rayHit = Physics.Raycast(startPoint, currentDir, out hitInfo, radius);
+            bool rayHit = Physics.Raycast(startPoint, currentDir, out hitInfo, radius, obstacleMask);
             wallHit = wallHit || rayHit;
             if (rayHit && hitInfo.distance < shortestDistance)
             {
@@ -107,14 +109,14 @@ public class XRMovement : MonoBehaviour
 
         //Move back based on shortest raycast output
         if (wallHit)
-            transform.position -= shortestDir * (radius - shortestDistance);
+            movableRig.position -= shortestDir * (radius - shortestDistance);
     }
     private void ApplyInput()
     {
         if (onLookRight)
-            transform.eulerAngles += Vector3.up * turnStep;
+            movableRig.eulerAngles += Vector3.up * turnStep;
         if (onLookLeft)
-            transform.eulerAngles -= Vector3.up * turnStep;
+            movableRig.eulerAngles -= Vector3.up * turnStep;
 
         forward = hmdTracker.forward.Planar(Vector3.up);
         right = Quaternion.Euler(0, 90, 0) * forward; //Cheaper than cross
@@ -129,9 +131,9 @@ public class XRMovement : MonoBehaviour
         rightDist = speed * Time.deltaTime * leftStickXValue;
         forwardDist = speed * Time.deltaTime * leftStickYValue;
         if (moveRight || moveLeft)
-            transform.position += right * rightDist;
+            movableRig.position += right * rightDist;
         if (moveForward || moveBack)
-            transform.position += forward * forwardDist;
+            movableRig.position += forward * forwardDist;
         
         if (moveUp || moveDown)
         {
@@ -142,7 +144,7 @@ public class XRMovement : MonoBehaviour
             float correctedUpOffset = Mathf.Clamp(upOffset, minOffset, maxOffset);
             if (Mathf.Sign(upOffset) != Mathf.Sign(correctedUpOffset))
                 correctedUpOffset = 0;
-            transform.position += Vector3.up * correctedUpOffset;
+            movableRig.position += Vector3.up * correctedUpOffset;
         }
     }
     private void ReadInput()
